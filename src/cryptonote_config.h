@@ -58,7 +58,7 @@
 
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(100000000000000000))
-#define EMISSION_SPEED_FACTOR_PER_MINUTE                (21)
+#define EMISSION_SPEED_FACTOR_PER_MINUTE                (22)
 #define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)30000000) // 3 * pow(10, 7)
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
@@ -84,7 +84,6 @@
 #define DIFFICULTY_TARGET_V1                            120  // seconds - before first fork
 #define DIFFICULTY_WINDOW                               720 // blocks
 #define DIFFICULTY_WINDOW_V2                            70
-#define DIFFICULTY_WINDOW_V3                            60
 #define DIFFICULTY_LAG                                  15  // !!!
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V2                      (DIFFICULTY_WINDOW_V2 + 1) // added +1 to make N=N

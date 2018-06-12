@@ -86,15 +86,18 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1517405674 },
+  { 1, 1, 0, 1517405674, 0 },
 
   // version 2 starts from block 23001.
   
- { 2, 23001 , 0, 1520036614 },
+ { 2, 23001 , 0, 1520036614, 0 },
   // version 3 starts from block 54901. 
- { 3, 54901, 0, 1523885225 },
+ { 3, 54901, 0, 1523885225, 0 },
+  // version 3 starts from block 54901. 
+ //{ 4, 95775, 0, 1528817979, 100 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 23000;
 
@@ -103,12 +106,13 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
-  { 2, 11, 0, 1521000000 },
-  { 3, 21, 0, 1521120000 },
-  { 4, 31, 0, 1521240000 }
+  { 1, 1, 0, 1341378000, 0 },
+  { 2, 11, 0, 1521000000, 0 },
+  { 3, 21, 0, 1521120000, 0 },
+  { 4, 31, 0, 1521240000, 100 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 10;
 
@@ -117,17 +121,18 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1341378000, 0 },
 
   // versions 2-7 in rapid succession from March 13th, 2018
-  { 2, 32000, 0, 1521000000 },
-  { 3, 33000, 0, 1521120000 },
-  { 4, 34000, 0, 1521240000 },
-  { 5, 35000, 0, 1521360000 },
-  { 6, 36000, 0, 1521480000 },
-  { 7, 37000, 0, 1521600000 },
+  { 2, 32000, 0, 1521000000, 0 },
+  { 3, 33000, 0, 1521120000, 0 },
+  { 4, 34000, 0, 1521240000, 0 },
+  { 5, 35000, 0, 1521360000, 0 },
+  { 6, 36000, 0, 1521480000, 0 },
+  { 7, 37000, 0, 1521600000, 0 },
 };
 
 //------------------------------------------------------------------
@@ -343,12 +348,12 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   else if (m_nettype == TESTNET)
   {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+      m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time, testnet_hard_forks[n].diff_reset_value);
   }
   else if (m_nettype == STAGENET)
   {
     for (size_t n = 0; n < sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
+      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time, stagenet_hard_forks[n].diff_reset_value);
   }
   else
   {
@@ -826,11 +831,9 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
   size_t target = version < BLOCK_MAJOR_VERSION_2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
-  /*
-  size_t diffv3 = version < 4 ? next_difficulty_v2(timestamps, difficulties, target) : next_difficulty_v3(timestamps, difficulties, target);
-  return version < 2 ? next_difficulty(timestamps, difficulties, target) : diffv3;
-  */
-  return version < BLOCK_MAJOR_VERSION_2 ? next_difficulty(timestamps, difficulties, target) : next_difficulty_v2_ipbc(timestamps, difficulties, target);
+  uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(height);
+  difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(height);
+  return version < BLOCK_MAJOR_VERSION_2 ? next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value) : next_difficulty_v2_ipbc(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value);
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
@@ -1033,13 +1036,9 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 
   // FIXME: This will fail if fork activation heights are subject to voting
   size_t target = get_ideal_hard_fork_version(bei.height) < BLOCK_MAJOR_VERSION_2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
-
-  // calculate the difficulty target for the block and return it
-  /*
-  size_t diffv3 = get_ideal_hard_fork_version(bei.height) < 4 ? next_difficulty_v2(timestamps, cumulative_difficulties, target) : next_difficulty_v3(timestamps, cumulative_difficulties, target);
-  return get_ideal_hard_fork_version(bei.height) < 2 ? next_difficulty(timestamps, cumulative_difficulties, target) : diffv3;
-  */
-  return get_ideal_hard_fork_version(bei.height) < BLOCK_MAJOR_VERSION_2 ? next_difficulty(timestamps, cumulative_difficulties, target) : next_difficulty_v2_ipbc(timestamps, cumulative_difficulties, target);
+  uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(bei.height);
+  difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(bei.height);
+  return get_ideal_hard_fork_version(bei.height) < BLOCK_MAJOR_VERSION_2 ? next_difficulty(timestamps, cumulative_difficulties, target, bei.height, last_diff_reset_height, last_diff_reset_value) : next_difficulty_v2_ipbc(timestamps, cumulative_difficulties, target, bei.height, last_diff_reset_height, last_diff_reset_value);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
@@ -1115,6 +1114,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       return false;
     }
   }
+
   if(base_reward < money_in_use)
   {
     MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward) << "(" << print_money(base_reward - fee) << "+" << print_money(fee) << ")");
@@ -1135,7 +1135,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       partial_block_reward = true;
     base_reward = money_in_use;
   }
-
+ 
   return true;
 }
 //------------------------------------------------------------------
@@ -3640,14 +3640,14 @@ leave:
   // do this after updating the hard fork state since the size limit may change due to fork
   update_next_cumulative_size_limit();
 
-  MINFO("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(base_reward) << "(" << print_money(base_reward - fee_summary) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
+  MINFO("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(base_reward) << "(" << print_money(base_reward - fee_summary) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms" << " GENERATED COINS: " << already_generated_coins);
   if(m_show_time_stats)
   {
     MINFO("Height: " << new_height << " blob: " << coinbase_blob_size << " cumm: "
         << cumulative_block_size << " p/t: " << block_processing_time << " ("
         << target_calculating_time << "/" << longhash_calculating_time << "/"
         << t1 << "/" << t2 << "/" << t3 << "/" << t_exists << "/" << t_pool
-        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock << ")ms");
+        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock << ")ms" << " GENERATED COINS: " << already_generated_coins);
   }
 
   bvc.m_added_to_main_chain = true;
@@ -4469,7 +4469,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "30a45649353a3cf96e0e0e2656daf77f08965fffaeff6a350fe71807eefd4474";
+static const char expected_block_hashes_hash[] = "b58cca56e5e1e5949790fefb2d8796520971f51ddbb8bcc494981bf78531e21e";
 void Blockchain::load_compiled_in_block_hashes()
 {
   const bool testnet = m_nettype == TESTNET;
