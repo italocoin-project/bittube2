@@ -32,8 +32,8 @@
 using namespace epee;
 
 #include <atomic>
-#include <mutex>
 #include <boost/algorithm/string.hpp>
+#include <boost/thread/mutex.hpp>
 #include "wipeable_string.h"
 #include "string_tools.h"
 #include "serialization/string.h"
@@ -753,6 +753,7 @@ namespace cryptonote
       decimal_point = default_decimal_point;
     switch (std::atomic_load(&default_decimal_point))
     {
+
       case CRYPTONOTE_DISPLAY_DECIMAL_POINT:
         return "bittube";
       case CRYPTONOTE_DISPLAY_DECIMAL_POINT - 3:
@@ -939,7 +940,7 @@ namespace cryptonote
 	if (!get_block_hashing_blob(b, blob))
 		return false;
 
-    if (b.major_version >= BLOCK_MAJOR_VERSION_2)
+	if (b.major_version == BLOCK_MAJOR_VERSION_2 || b.major_version == BLOCK_MAJOR_VERSION_3)
 	{
 		blobdata parent_blob;
 		auto sbb = make_serializable_bytecoin_block(b, true, false);
@@ -963,8 +964,8 @@ namespace cryptonote
 	  static crypto::hash genesis_block_hash;
 	  if (!cached)
 	  {
-		  static std::mutex m;
-		  std::unique_lock<std::mutex> lock(m);
+		  static boost::mutex m;
+		  boost::unique_lock<boost::mutex> lock(m);
 		  if (!cached)
 		  {
 			  block genesis_block;
@@ -1001,7 +1002,13 @@ namespace cryptonote
 bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
   {
     blobdata bd = get_block_hashing_blob(b);
+    // PoW variant 1 appeared in block version 4, so our current PoW variant is calculated with "block version - 3"
+	if (b.major_version >= BLOCK_MAJOR_VERSION_4){
+    const int cn_variant = b.major_version >= BLOCK_MAJOR_VERSION_FUTURE ? 2 : (b.major_version >= BLOCK_MAJOR_VERSION_3 ? 1 : 0);
+	 crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
+	}else{
     crypto::cn_slow_hash(bd.data(), bd.size(), res);
+	}
     return true;
   }
  bool get_bytecoin_block_longhash(const block& b, crypto::hash& res)
@@ -1009,23 +1016,17 @@ bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
 	  blobdata bd;
 	  if (!get_bytecoin_block_hashing_blob(b, bd))
 		  return false;
-
-    // v1-2 = standard, v3 = lite + monerov7 + ipbc, vX = sumo + monerov7 + ipbc
-    const int cn_variant = b.major_version >= BLOCK_MAJOR_VERSION_FUTURE ? 2 : (b.major_version >= BLOCK_MAJOR_VERSION_3 ? 1 : 0);
-	  crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
+	  const int cn_variant = b.major_version >= BLOCK_MAJOR_VERSION_FUTURE ? 2 : (b.major_version >= BLOCK_MAJOR_VERSION_3 ? 1 : 0);
+	crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
 	  return true;
   }
   //---------------------------------------------------------------
   bool check_proof_of_work_v1(const block& bl, difficulty_type current_diffic, crypto::hash& proof_of_work)
   {
-    MDEBUG("Checking POW V1 - diff " << current_diffic);
-	  if (BLOCK_MAJOR_VERSION_1 != bl.major_version)
+	  if (BLOCK_MAJOR_VERSION_1 != bl.major_version && BLOCK_MAJOR_VERSION_4 != bl.major_version && 5 != bl.major_version)
 		  return false;
 
-	  if (!get_block_longhash(bl, proof_of_work, 0)) {
-       MDEBUG("Failed to get block longhash");
-       return false;
-    }
+	  proof_of_work = get_block_longhash(bl, 0);
 	  return check_hash(proof_of_work, current_diffic);
   }
   //---------------------------------------------------------------
@@ -1081,11 +1082,15 @@ bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
 	  switch (bl.major_version)
 	  {
 	  case BLOCK_MAJOR_VERSION_1: 
-		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
+	      return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
 	  case BLOCK_MAJOR_VERSION_2:
+	      return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
 	  case BLOCK_MAJOR_VERSION_3:
-	  case BLOCK_MAJOR_VERSION_4:
 		  return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
+	  case BLOCK_MAJOR_VERSION_4: 
+		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
+      case 5: 
+		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);		  
 	  }
 
 	  CHECK_AND_ASSERT_MES(false, false, "unknown block major version: " << bl.major_version << "." << bl.minor_version);

@@ -101,7 +101,7 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
-  struct txin_to_script
+  struct txin_to_script 
   {
     crypto::hash prev;
     size_t prevout;
@@ -465,6 +465,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(major_version)
+	  //TODO this needs revision for next hardforks
 	  if (major_version > BLOCK_MAJOR_VERSION_4) {
 			MERROR("Block version is too high " << (unsigned)major_version);
 			return false;

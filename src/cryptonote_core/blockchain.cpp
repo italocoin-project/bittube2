@@ -96,8 +96,10 @@ static const struct {
  { 2, 23001 , 0, 1520036614, 0 },
   // version 3 starts from block 54901. 
  { 3, 54901, 0, 1523885225, 0 },
-  // version 3 starts from block 54901. 
- //{ 4, 95775, 0, 1527817979, 100 },
+  // version 4 starts from block 95775. 
+// { 4, 95775, 0, 1527817979, 100 },
+  // version 5 starts from block 95790.
+// { 5, 95790, 0, 1527817999, 100 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 23000;
 
@@ -112,7 +114,7 @@ static const struct {
   { 1, 1, 0, 1341378000, 0 },
   { 2, 11, 0, 1521000000, 0 },
   { 3, 21, 0, 1521120000, 0 },
-  { 4, 31, 0, 1521240000, 100 },
+  { 4, 31, 0, 1521240000, 100 }, 
 };
 static const uint64_t testnet_hard_fork_version_1_till = 10;
 
@@ -1098,8 +1100,8 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     MERROR_VER("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }
-
-  if (version >= BLOCK_MAJOR_VERSION_4) {
+//TODO THIS NEEDS FIXING ERROR: marketing reward public key incorrect.
+  if (version > 7) {
     auto share_key = get_deterministic_keypair_from_height(m_db->height());
     auto shares = get_block_reward_shares(base_reward, version, m_nettype);
     size_t idx = b.miner_tx.vout.size() - shares.size();
@@ -1196,7 +1198,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   height = m_db->height();
 
   b.major_version = m_hardfork->get_current_version();
-  if (b.major_version >= BLOCK_MAJOR_VERSION_2) {
+  if (b.major_version >= BLOCK_MAJOR_VERSION_2 && b.major_version < BLOCK_MAJOR_VERSION_4) {
 	  b.minor_version = 0;
 	  b.parent_block.major_version = BLOCK_MAJOR_VERSION_1;
 	  b.parent_block.minor_version = b.major_version >= BLOCK_MAJOR_VERSION_3 ? 1 : 0;
