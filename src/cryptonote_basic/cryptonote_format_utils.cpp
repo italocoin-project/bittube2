@@ -1004,7 +1004,7 @@ bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
     blobdata bd = get_block_hashing_blob(b);
     // PoW variant 1 appeared in block version 4, so our current PoW variant is calculated with "block version - 3"
 	if (b.major_version >= BLOCK_MAJOR_VERSION_4){
-    const int cn_variant = b.major_version >= BLOCK_MAJOR_VERSION_FUTURE ? 2 : (b.major_version >= BLOCK_MAJOR_VERSION_3 ? 1 : 0);
+    const int cn_variant = b.major_version >= BLOCK_MAJOR_VERSION_FUTURE ? 2 : (b.major_version >= BLOCK_MAJOR_VERSION_4 ? 1 : 0);
 	 crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
 	}else{
     crypto::cn_slow_hash(bd.data(), bd.size(), res);
@@ -1084,13 +1084,11 @@ bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
 	  case BLOCK_MAJOR_VERSION_1: 
 	      return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
 	  case BLOCK_MAJOR_VERSION_2:
-	      return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
+	      return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
 	  case BLOCK_MAJOR_VERSION_3:
 		  return check_proof_of_work_v2(bl, current_diffic, proof_of_work);
-	  case BLOCK_MAJOR_VERSION_4: 
-		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);
-      case 5: 
-		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);		  
+	  default: 
+		  return check_proof_of_work_v1(bl, current_diffic, proof_of_work);	  
 	  }
 
 	  CHECK_AND_ASSERT_MES(false, false, "unknown block major version: " << bl.major_version << "." << bl.minor_version);

@@ -111,12 +111,13 @@ static const struct {
   difficulty_type diff_reset_value;
 } testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000, 0 },
-  { 2, 11, 0, 1521000000, 0 },
-  { 3, 21, 0, 1521120000, 0 },
-  { 4, 31, 0, 1521240000, 100 }, 
+  { 1, 1, 0, 1517405674, 0 },
+  //{ 2, 5, 0, 1520036614, 100 }, // Skipped because of conflicts on mainet
+  //{ 3, 10, 0, 1523885225, 100 }, // Skipped because of conflicts on mainet
+  { 4, 5, 0, 1527817979, 100 }, 
+  { 5, 10, 0, 1527817999, 100 },
 };
-static const uint64_t testnet_hard_fork_version_1_till = 10;
+static const uint64_t testnet_hard_fork_version_1_till = 4;
 
 static const struct {
   uint8_t version;
