@@ -97,7 +97,7 @@ static const struct {
   // version 3 starts from block 54901. 
  { 3, 54901, 0, 1523885225, 0 },
   // version 3 starts from block 54901. 
- //{ 4, 95775, 0, 1528817979, 100 },
+ //{ 4, 95775, 0, 1527817979, 100 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 23000;
 
@@ -358,7 +358,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   else
   {
     for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
+      m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time, mainnet_hard_forks[n].diff_reset_value);
   }
   m_hardfork->init();
 
